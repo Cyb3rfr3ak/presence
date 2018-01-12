@@ -15,6 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"crypto/x509"
+	"crypto/tls"
+	"io/ioutil"
 
 	"github.com/boltdb/bolt"
 
@@ -709,10 +712,27 @@ func main() {
 	}
 	defer db.Close()
 
+	// Read the certificate file.
+	b, err := ioutil.ReadFile("root.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	roots := x509.NewCertPool()
+	
+	tlsConfig := &tls.Config{
+		RootCAs: roots,
+	}
+	
+	if ok := roots.AppendCertsFromPEM(b); !ok {
+		panic("failed to parse root certificate")
+	}
+
 	// Connect to the MQTT Server.
 	err = cli.Connect(&client.ConnectOptions{
 		Network:  "tcp",
 		Address:  *mqtt_host_ptr,
+		TLSConfig:	tlsConfig,
 		ClientID: []byte(*mqtt_client_id_ptr),
 		UserName: []byte(*mqtt_username_ptr),
 		Password: []byte(*mqtt_password_ptr),
